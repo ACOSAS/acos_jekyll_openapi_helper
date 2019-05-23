@@ -1,14 +1,23 @@
 require 'json'
 
 class AcosOpenApiHelper
-    def self.generate_pages(json_file, basePath, output_path, sidebar)
+    def self.generate_pages(json_file, basePath, output_path)
 
         puts "Loading json file: %s" % [json_file]
         fileHelper = JsonFileHelper.new(json_file)
         fileHelper.load
 
-        engine = PageEngine.new(fileHelper.json_data, basePath, output_path, sidebar, json_file)
+        engine = PageEngine.new(fileHelper.json_data, basePath, output_path, json_file)
         engine.generate
+    end
+
+    def self.generate_pages_from_data(datafolder, basePath, output_path)
+        json_files = Dir["%s/*.json" % datafolder]
+        json_files.each do | jf |
+            puts "Generating pages based on: %s" % jf
+            generate_pages(jf, basePath, output_path)
+        end
+
     end
 end
 
@@ -34,10 +43,10 @@ class AcosOpenApiHelper::JsonFileHelper
 end
 
 class AcosOpenApiHelper::PageEngine    
-    def initialize(data, basePath, output_path, sidebar, swaggerfile)
+    def initialize(data, basePath, output_path, swaggerfile)
         @data = data
         @output_path = output_path
-        @sidebar = sidebar
+        #@sidebar = sidebar
         @swaggerfile = swaggerfile
         @basePath = basePath
     end        
@@ -46,6 +55,8 @@ class AcosOpenApiHelper::PageEngine
         puts "generating pages..."
         cnt = 0
         puts "Open API version %s" % @data['openapi']
+        docTitle = @data["info"]["title"]
+        sidebar =  "%s_sidebar" % docTitle
         menu = AcosOpenApiHelper::SidebarMenu.new()
         @data['paths'].each do |path|
             #puts "Prop: %s at counter %s" % [path, cnt]
@@ -62,8 +73,8 @@ class AcosOpenApiHelper::PageEngine
             # end
             #@prop = @data['paths'][cnt]
             #puts "Found property %s" [@prop]
-            puts "Constants: %s, %s, %s, %s" % [_path, @output_path, @swaggerfile, @sidebar]
-            writer =  AcosOpenApiHelper::PageCreator.new(_path, @basePath, @output_path, @swaggerfile, @sidebar)
+            #puts "Constants: %s, %s, %s, %s" % [_path, @output_path, @swaggerfile, @sidebar]
+            writer =  AcosOpenApiHelper::PageCreator.new(_path, @basePath, @output_path, @swaggerfile, sidebar)
             writer.write
             _permalink =AcosOpenApiHelper::PermalinkGenerator.create(_path, @swaggerfile)
             _menuItem = AcosOpenApiHelper::MenuItem.new(_path, _permalink)
@@ -73,7 +84,7 @@ class AcosOpenApiHelper::PageEngine
         end
         puts "Done generating %s pages..." % cnt
         puts "Writing menu"
-        menu.write("%s/_data/sidebars" % @basePath, "documentation_sidebar")
+        menu.write("%s/_data/sidebars" % @basePath, sidebar, docTitle)
     end
 
 end
@@ -97,7 +108,7 @@ class AcosOpenApiHelper::SidebarMenu
         #@@entries << self
     end
 
-    def write (output_path, name)
+    def write (output_path, name, menuTitle)
         _standardLines = [
             "# This is your sidebar TOC. The sidebar code loops through sections here and provides the appropriate formatting.",
             "entries:",
@@ -105,7 +116,7 @@ class AcosOpenApiHelper::SidebarMenu
             "  # product: Documentation",
             "  # version: 1.0",
             "  folders:",
-            "  - title: User API",
+            "  - title: %s" % menuTitle,
             "    output: web",
             "    type: frontmatter",
             "    folderitems: "
