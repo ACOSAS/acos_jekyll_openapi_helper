@@ -63,7 +63,7 @@ class AcosOpenApiHelper::PageEngine
             _path = path[0] #path of swagger method
             _methods = @data['paths'][_path]
             #puts "Path: %s has methods: %s " % [_path, _methods]
-            puts "Methods: %s" % _methods
+            # puts "Methods: %s" % _methods
             puts "Path: %s" % [_path]
             #Should not need this. yet...
             # _methods.each do | _method |
@@ -173,7 +173,7 @@ end
 
 class AcosOpenApiHelper::PageCreator
     def initialize(path, basePath, output_path, swaggerfile, sidebar)
-        puts "Initialize intput %s, %s, %s, %s" % [path, output_path, swaggerfile, sidebar]
+        # puts "Initialize intput %s, %s, %s, %s" % [path, output_path, swaggerfile, sidebar]
         @path = path
         @output_path = output_path
         @swaggerfile = swaggerfile
@@ -186,7 +186,8 @@ class AcosOpenApiHelper::PageCreator
             "title: User API %s" % path,
             "keywords: json, openapi",
             "# summary: test med json fil",
-            "sidebar: %s" % @sidebar,
+            "sidebars: ",
+            " - name: %s" % @sidebar,
             "permalink: %s.html" % @permalink,
             "folder: swagger",
             "toc: false",
