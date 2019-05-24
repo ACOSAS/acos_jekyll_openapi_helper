@@ -52,9 +52,9 @@ class AcosOpenApiHelper::PageEngine
     end        
 
     def generate
-        puts "generating pages..."
+        puts "Generating pages..."
         cnt = 0
-        puts "Open API version %s" % @data['openapi']
+        puts "Open API version %s in .json file" % @data['openapi']
         docTitle = @data["info"]["title"]
         sidebar =  "%s_sidebar" % docTitle
         menu = AcosOpenApiHelper::SidebarMenu.new()
@@ -64,7 +64,7 @@ class AcosOpenApiHelper::PageEngine
             _methods = @data['paths'][_path]
             #puts "Path: %s has methods: %s " % [_path, _methods]
             # puts "Methods: %s" % _methods
-            puts "Path: %s" % [_path]
+            #puts "Path: %s" % [_path]
             #Should not need this. yet...
             # _methods.each do | _method |
             #     puts "Method: %s " % _method
@@ -110,6 +110,7 @@ class AcosOpenApiHelper::SidebarMenu
 
     def write (output_path, name, menuTitle)
         _standardLines = [
+            "# THIS PAGE IS GENERATED. ANY CHANGES TO PAGE WILL POTENTIALLY BE OVERWRITTEN.",
             "# This is your sidebar TOC. The sidebar code loops through sections here and provides the appropriate formatting.",
             "entries:",
             "- title: sidebar",
@@ -123,7 +124,7 @@ class AcosOpenApiHelper::SidebarMenu
         ]
         puts "Writing menu with length:  %s" % @@entries.length
         @@entries.each do | item | 
-                puts "Entry: %s, url: %s" % [item.title, item.url]
+                #puts "Entry: %s, url: %s" % [item.title, item.url]
                 _standardLines << "    - title: %s" % item.title
                 _standardLines << "      url: /%s.html" % item.url
                 _standardLines << "      output: web, pdf"
@@ -183,6 +184,7 @@ class AcosOpenApiHelper::PageCreator
         @permalink = AcosOpenApiHelper::PermalinkGenerator.create(path, @swaggerfile)
         @lines = [
             "---",
+            "# THIS PAGE IS GENERATED. ANY CHANGES TO PAGE WILL POTENTIALLY BE OVERWRITTEN.",
             "title: User API %s" % path,
             "keywords: json, openapi",
             "# summary: test med json fil",

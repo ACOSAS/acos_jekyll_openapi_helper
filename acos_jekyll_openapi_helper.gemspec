@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
     s.name        = 'acos_jekyll_openapi_helper'
-    s.version     = '1.2.0'
-    s.date        = '2019-05-23'
+    s.version     = '1.3.0'
+    s.date        = '2019-05-24'
     s.summary     = "Open API json file helper"
     s.description = "A gem to generate page entries for jekyll sites"
     s.authors     = ["Acos AS"]
