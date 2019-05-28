@@ -46,7 +46,6 @@ class AcosOpenApiHelper::PageEngine
     def initialize(data, basePath, output_path, swaggerfile)
         @data = data
         @output_path = output_path
-        #@sidebar = sidebar
         @swaggerfile = swaggerfile
         @basePath = basePath
     end        
@@ -54,39 +53,34 @@ class AcosOpenApiHelper::PageEngine
     def generate
         puts "Generating pages..."
         cnt = 0
-        puts "Open API version %s in .json file" % @data['openapi']
-        docTitle = @data["info"]["title"]
-        sidebar =  "%s_sidebar" % docTitle
+        puts "Open API version %s in .json file" % (@data.key?("openapi") ? @data['openapi'] : @data['swagger'])
+        docTitle = (@data["info"]["title"])    
+        _components = @data.key?("components")  ? "components" :"definitions"
+        docFile = docTitle.gsub(/\s+|{|}|\//, "_").downcase
+        puts "Document title : %s" % docTitle
+        sidebar =  "%s_sidebar" % docFile
         menu = AcosOpenApiHelper::SidebarMenu.new()
         @data['paths'].each do |path|
-            #puts "Prop: %s at counter %s" % [path, cnt]
             _path = path[0] #path of swagger method
             _methods = @data['paths'][_path]
-            #puts "Path: %s has methods: %s " % [_path, _methods]
-            # puts "Methods: %s" % _methods
-            #puts "Path: %s" % [_path]
-            #Should not need this. yet...
-            # _methods.each do | _method |
-            #     puts "Method: %s " % _method
-            #     _md = _methods[_method]
-            #     puts "Method description: %s" % [_md]
-            # end
-            #@prop = @data['paths'][cnt]
-            #puts "Found property %s" [@prop]
-            #puts "Constants: %s, %s, %s, %s" % [_path, @output_path, @swaggerfile, @sidebar]
-            writer =  AcosOpenApiHelper::PageCreator.new(_path, @basePath, @output_path, @swaggerfile, sidebar)
+            writer =  AcosOpenApiHelper::PageCreator.new(_path, @basePath, @output_path, @swaggerfile, sidebar, docFile)
             writer.write
-            _permalink =AcosOpenApiHelper::PermalinkGenerator.create(_path, @swaggerfile)
+            _permalink = AcosOpenApiHelper::PermalinkGenerator.create(_path, @swaggerfile)
             _menuItem = AcosOpenApiHelper::MenuItem.new(_path, _permalink)
             menu.add(_menuItem)
             cnt = cnt + 1
-
         end
+        # Adding component page for models
+        #createComponents(basePath, title, sidebar, swaggerfile, docFile)
+        AcosOpenApiHelper::PageCreator.createComponents(@basePath, docTitle, sidebar, @swaggerfile, docFile, _components)
+        _componentMenu = AcosOpenApiHelper::MenuItem.new("%s Models" % docTitle, "%s_components" % docFile)
+        menu.add(_componentMenu)
+        cnt = cnt + 1
+
         puts "Done generating %s pages..." % cnt
         puts "Writing menu"
         menu.write("%s/_data/sidebars" % @basePath, sidebar, docTitle)
     end
-
 end
 
 class AcosOpenApiHelper::SidebarMenu 
@@ -109,6 +103,8 @@ class AcosOpenApiHelper::SidebarMenu
     end
 
     def write (output_path, name, menuTitle)
+        #no spaces in filename ofr sidebar.yml
+        name = name.gsub(/\s+|{|}|\//, "_").downcase
         _standardLines = [
             "# THIS PAGE IS GENERATED. ANY CHANGES TO PAGE WILL POTENTIALLY BE OVERWRITTEN.",
             "# This is your sidebar TOC. The sidebar code loops through sections here and provides the appropriate formatting.",
@@ -130,9 +126,9 @@ class AcosOpenApiHelper::SidebarMenu
                 _standardLines << "      output: web, pdf"
         end
 
-        _standardLines << "    - title: %s" % "Models"
-        _standardLines << "      url: /%s.html" % "userapi_components"
-        _standardLines << "      output: web, pdf"
+        # _standardLines << "    - title: %s" % "Models"
+        # _standardLines << "      url: /%s.html" % "userapi_components"
+        # _standardLines << "      output: web, pdf"
         # File.open("%s/%s/%s/%s.%s" % [@basePath, "pages", "swagger", @permalink, "md"], "w+") do |f|
         #     f.puts(@lines)
         #   end
@@ -140,6 +136,8 @@ class AcosOpenApiHelper::SidebarMenu
         File.open("%s/%s.%s" % [output_path, name, "yml"], "w+") do | f |
             f.puts(_standardLines)
         end
+
+        @@entries.clear
     end
     
 end
@@ -172,24 +170,38 @@ class AcosOpenApiHelper::PermalinkGenerator
 
 end
 
+class AcosOpenApiHelper::FileNameGenerator
+    def self.create(path, docFile)
+        @docFileBase = "%s_%s" % [docFile, path]
+        @docFileName = @docFileBase.gsub(/\s+|{|}|\//, "_").downcase
+        return @docFileName
+    end
+
+    def fileName
+        @docFileName
+    end
+
+end
+
 class AcosOpenApiHelper::PageCreator
-    def initialize(path, basePath, output_path, swaggerfile, sidebar)
+    def initialize(path, basePath, output_path, swaggerfile, sidebar, docFile)
         # puts "Initialize intput %s, %s, %s, %s" % [path, output_path, swaggerfile, sidebar]
         @path = path
         @output_path = output_path
         @swaggerfile = swaggerfile
         @sidebar = sidebar
+        @docFile = AcosOpenApiHelper::FileNameGenerator.create(@path, docFile)
         @basePath = basePath
         @swaggerfileBase = File.basename(@swaggerfile, ".*")
         @permalink = AcosOpenApiHelper::PermalinkGenerator.create(path, @swaggerfile)
         @lines = [
             "---",
             "# THIS PAGE IS GENERATED. ANY CHANGES TO PAGE WILL POTENTIALLY BE OVERWRITTEN.",
-            "title: User API %s" % path,
+            "title: %s" % path,
             "keywords: json, openapi",
             "# summary: test med json fil",
-            "sidebars: ",
-            " - name: %s" % @sidebar,
+            " #sidebars: ",
+            " # - name: %s" % @sidebar,
             "permalink: %s.html" % @permalink,
             "folder: swagger",
             "toc: false",
@@ -202,9 +214,37 @@ class AcosOpenApiHelper::PageCreator
     end
 
     def write
-        File.open("%s/%s/%s/%s.%s" % [@basePath, "pages", "swagger", @permalink, "md"], "w+") do |f|
+        File.open("%s/%s/%s/%s.%s" % [@basePath, "pages", "swagger", @docFile, "md"], "w+") do |f|
             f.puts(@lines)
           end
+    end
+
+    def self.createComponents(basePath, title, sidebar, swaggerfile, docFile, componentsKey)
+        swaggerfileName = File.basename(swaggerfile, ".*")
+        contentLines = [
+            "---",
+            "title: %s Models" % title,
+            "keyword: json, openapi, models, components",
+            "sidebars:",
+            " - name: %s" % sidebar,
+            "folder: swagger",
+            "toc: false",
+            "swaggerfile: %s" % swaggerfileName,
+            "swaggerkey: %s" % componentsKey,
+            "permalink: %s_components.html" % docFile,
+            "link: %s_components.html" % docFile,
+            "---",
+            "{% include swagger_json/get_components.md attribute='page.swaggerkey' %}",
+            "",
+            "{% include links.html %}",
+        ]
+        AcosOpenApiHelper::PageCreator.writeFile("%s/pages/swagger/%s_components.md" % [basePath, docFile], contentLines)
+    end
+
+    def self.writeFile(fullPath, contentLines )
+        File.open("%s" % fullPath, "w+") do | f | 
+            f.puts(contentLines)
+        end
     end
 end
 
