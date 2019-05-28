@@ -60,10 +60,20 @@ class AcosOpenApiHelper::PageEngine
         puts "Document title : %s" % docTitle
         sidebar =  "%s_sidebar" % docFile
         menu = AcosOpenApiHelper::SidebarMenu.new()
+
+        if File.exists?("%s/%s_index.md" % [@output_path, docFile] )
+            _indexMenu = AcosOpenApiHelper::MenuItem.new("Overview %s " % docTitle, "%s_index" % docFile)
+            menu.add(_indexMenu)
+            cnt = cnt + 1
+        else
+            puts "No index file found for %s" % docFile
+        end
+
         @data['paths'].each do |path|
             _path = path[0] #path of swagger method
             _methods = @data['paths'][_path]
-            writer =  AcosOpenApiHelper::PageCreator.new(_path, @basePath, @output_path, @swaggerfile, sidebar, docFile)
+            #(path, basePath, output_path, swaggerfile, sidebar, docFile, component)
+            writer =  AcosOpenApiHelper::PageCreator.new(_path, @basePath, @output_path, @swaggerfile, sidebar, docFile, _components)
             writer.write
             _permalink = AcosOpenApiHelper::PermalinkGenerator.create(_path, @swaggerfile)
             _menuItem = AcosOpenApiHelper::MenuItem.new(_path, _permalink)
@@ -180,11 +190,10 @@ class AcosOpenApiHelper::FileNameGenerator
     def fileName
         @docFileName
     end
-
 end
 
 class AcosOpenApiHelper::PageCreator
-    def initialize(path, basePath, output_path, swaggerfile, sidebar, docFile)
+    def initialize(path, basePath, output_path, swaggerfile, sidebar, docFile, component)
         # puts "Initialize intput %s, %s, %s, %s" % [path, output_path, swaggerfile, sidebar]
         @path = path
         @output_path = output_path
@@ -208,6 +217,8 @@ class AcosOpenApiHelper::PageCreator
             "swaggerfile: %s" % @swaggerfileBase,
             "swaggerpath: paths",
             "swaggerkey: %s" % @path,
+            "swagger_components: %s" % component, 
+            "components_file: %s" % docFile,
             "---",
             "{\% include swagger_json/get_path.md \%}"
         ]
@@ -247,4 +258,3 @@ class AcosOpenApiHelper::PageCreator
         end
     end
 end
-
