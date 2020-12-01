@@ -56,7 +56,7 @@ class AcosOpenApiHelper::PageEngine
         puts "Open API version %s in .json file" % (@data.key?("openapi") ? @data['openapi'] : @data['swagger'])
         docTitle = (@data["info"]["title"])    
         _components = @data.key?("components")  ? "components" :"definitions"
-        docFile = docTitle.gsub(/\s+|{|}|\//, "_").downcase
+        docFile = docTitle.gsub(/\+|\s+|{|}|\//, "_").downcase
         puts "Document title : %s" % docTitle
         sidebar =  "%s_sidebar" % docFile
         menu = AcosOpenApiHelper::SidebarMenu.new()
@@ -114,7 +114,8 @@ class AcosOpenApiHelper::SidebarMenu
 
     def write (output_path, name, menuTitle)
         #no spaces in filename ofr sidebar.yml
-        name = name.gsub(/\s+|{|}|\//, "_").downcase
+        name = name.gsub(/\s+|{|}|\/|\+/, "_").downcase
+        puts "Name of file %s" % [name]
         _standardLines = [
             "# THIS PAGE IS GENERATED. ANY CHANGES TO PAGE WILL POTENTIALLY BE OVERWRITTEN.",
             "# This is your sidebar TOC. The sidebar code loops through sections here and provides the appropriate formatting.",
@@ -170,7 +171,7 @@ class AcosOpenApiHelper::PermalinkGenerator
     def self.create(path, swaggerfile)
         @swaggerfileBase = File.basename(swaggerfile, ".*")
         @permalinkBase = "%s_%s" % [@swaggerfileBase, path]
-        @permalink = @permalinkBase.gsub(/\s+|{|}|\//, "_").downcase
+        @permalink = @permalinkBase.gsub(/\+|\s+|{|}|\//, "_").downcase
         return @permalink
     end
 
@@ -183,7 +184,7 @@ end
 class AcosOpenApiHelper::FileNameGenerator
     def self.create(path, docFile)
         @docFileBase = "%s_%s" % [docFile, path]
-        @docFileName = @docFileBase.gsub(/\s+|{|}|\//, "_").downcase
+        @docFileName = @docFileBase.gsub(/\+|\s+|{|}|\//, "_").downcase
         return @docFileName
     end
 
