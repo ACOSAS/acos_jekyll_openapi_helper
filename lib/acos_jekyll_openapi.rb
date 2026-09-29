@@ -11,8 +11,16 @@ class AcosOpenApiHelper
         engine.generate
     end
 
-    def self.generate_pages_from_data(datafolder, basePath, output_path)
+    def self.generate_pages_from_data(datafolder, basePath, output_path, only_files = [])
         json_files = Dir["%s/*.json" % datafolder]
+        wanted = Array(only_files).map { |name| File.basename(name.to_s.strip) }.reject(&:empty?)
+        unless wanted.empty?
+            json_files = json_files.select { |jf| wanted.include?(File.basename(jf)) }
+            missing = wanted - json_files.map { |jf| File.basename(jf) }
+            unless missing.empty?
+                raise "No swagger JSON matched: #{missing.join(', ')} in #{datafolder}"
+            end
+        end
         json_files.each do | jf |
             puts "Generating pages based on: %s" % jf
             generate_pages(jf, basePath, output_path)
@@ -59,111 +67,18 @@ class AcosOpenApiHelper::PageEngine
         docFile = docTitle.gsub(/\+|\s+|{|}|\//, "_").downcase
         puts "Document title : %s" % docTitle
         sidebar =  "%s_sidebar" % docFile
-        menu = AcosOpenApiHelper::SidebarMenu.new()
-
-        if File.exists?("%s/%s_index.md" % [@output_path, docFile] )
-            _indexMenu = AcosOpenApiHelper::MenuItem.new("Overview %s " % docTitle, "%s_index" % docFile)
-            menu.add(_indexMenu)
-            cnt = cnt + 1
-        else
-            puts "No index file found for %s" % docFile
-        end
 
         @data['paths'].each do |path|
-            _path = path[0] #path of swagger method
-            _methods = @data['paths'][_path]
-            #(path, basePath, output_path, swaggerfile, sidebar, docFile, component)
+            _path = path[0]
             writer =  AcosOpenApiHelper::PageCreator.new(_path, @basePath, @output_path, @swaggerfile, sidebar, docFile, _components)
             writer.write
-            _permalink = AcosOpenApiHelper::PermalinkGenerator.create(_path, @swaggerfile)
-            _menuItem = AcosOpenApiHelper::MenuItem.new(_path, _permalink)
-            menu.add(_menuItem)
             cnt = cnt + 1
         end
-        # Adding component page for models
-        #createComponents(basePath, title, sidebar, swaggerfile, docFile)
         AcosOpenApiHelper::PageCreator.createComponents(@basePath, docTitle, sidebar, @swaggerfile, docFile, _components)
-        _componentMenu = AcosOpenApiHelper::MenuItem.new("%s Models" % docTitle, "%s_components" % docFile)
-        menu.add(_componentMenu)
         cnt = cnt + 1
 
         puts "Done generating %s pages..." % cnt
-        puts "Writing menu"
-        menu.write("%s/_data/sidebars" % @basePath, sidebar, docTitle)
-    end
-end
-
-class AcosOpenApiHelper::SidebarMenu 
-    @@entries = Array.new
-    #attr_accessor :title, :url
-
-    def self.all_entries
-            @@entries
-    end
-
-    def add(entry)
-        @@entries.push(entry)
-    end
-
-
-    def initialize()
-        # @title = title
-        # @url = url
-        #@@entries << self
-    end
-
-    def write (output_path, name, menuTitle)
-        #no spaces in filename ofr sidebar.yml
-        name = name.gsub(/\s+|{|}|\/|\+/, "_").downcase
-        puts "Name of file %s" % [name]
-        _standardLines = [
-            "# THIS PAGE IS GENERATED. ANY CHANGES TO PAGE WILL POTENTIALLY BE OVERWRITTEN.",
-            "# This is your sidebar TOC. The sidebar code loops through sections here and provides the appropriate formatting.",
-            "entries:",
-            "- title: sidebar",
-            "  # product: Documentation",
-            "  # version: 1.0",
-            "  folders:",
-            "  - title: %s" % menuTitle,
-            "    output: web",
-            "    type: frontmatter",
-            "    folderitems: "
-        ]
-        puts "Writing menu with length:  %s" % @@entries.length
-        @@entries.each do | item | 
-                #puts "Entry: %s, url: %s" % [item.title, item.url]
-                _standardLines << "    - title: %s" % item.title
-                _standardLines << "      url: /%s.html" % item.url
-                _standardLines << "      output: web, pdf"
-        end
-
-        # _standardLines << "    - title: %s" % "Models"
-        # _standardLines << "      url: /%s.html" % "userapi_components"
-        # _standardLines << "      output: web, pdf"
-        # File.open("%s/%s/%s/%s.%s" % [@basePath, "pages", "swagger", @permalink, "md"], "w+") do |f|
-        #     f.puts(@lines)
-        #   end
-        puts "Writing menu file for %s at %s" % [name, output_path]
-        File.open("%s/%s.%s" % [output_path, name, "yml"], "w+") do | f |
-            f.puts(_standardLines)
-        end
-
-        @@entries.clear
-    end
-    
-end
-
-class AcosOpenApiHelper::MenuItem
-    def initialize(title, url) 
-        @title = title
-        @url = url
-    end
-
-    def title
-        @title
-    end
-    def url
-        @url        
+        puts "Sidebar is owned by overlay compose; gem does not write sidebar YAML."
     end
 end
 
@@ -172,6 +87,9 @@ class AcosOpenApiHelper::PermalinkGenerator
         @swaggerfileBase = File.basename(swaggerfile, ".*")
         @permalinkBase = "%s_%s" % [@swaggerfileBase, path]
         @permalink = @permalinkBase.gsub(/\+|\s+|{|}|\//, "_").downcase
+        unless @permalink =~ /\A[a-z0-9_-]+\z/
+            raise "Unsafe permalink: #{@permalink}"
+        end
         return @permalink
     end
 
@@ -185,6 +103,9 @@ class AcosOpenApiHelper::FileNameGenerator
     def self.create(path, docFile)
         @docFileBase = "%s_%s" % [docFile, path]
         @docFileName = @docFileBase.gsub(/\+|\s+|{|}|\//, "_").downcase
+        unless @docFileName =~ /\A[a-z0-9_-]+\z/
+            raise "Unsafe generated filename: #{@docFileName}"
+        end
         return @docFileName
     end
 
@@ -195,7 +116,6 @@ end
 
 class AcosOpenApiHelper::PageCreator
     def initialize(path, basePath, output_path, swaggerfile, sidebar, docFile, component)
-        # puts "Initialize intput %s, %s, %s, %s" % [path, output_path, swaggerfile, sidebar]
         @path = path
         @output_path = output_path
         @swaggerfile = swaggerfile
@@ -221,7 +141,8 @@ class AcosOpenApiHelper::PageCreator
             "swagger_components: %s" % component, 
             "components_file: %s" % docFile,
             "---",
-            "{\% include swagger_json/get_path.md \%}"
+            "{\% include swagger_json/get_path.md \%}",
+            "{\% include swagger_json/overlay_slot.md slot=\"after_page\" \%}"
         ]
     end
 
@@ -233,6 +154,9 @@ class AcosOpenApiHelper::PageCreator
 
     def self.createComponents(basePath, title, sidebar, swaggerfile, docFile, componentsKey)
         swaggerfileName = File.basename(swaggerfile, ".*")
+        unless docFile =~ /\A[a-z0-9_-]+\z/
+            raise "Unsafe generated filename: #{docFile}"
+        end
         contentLines = [
             "---",
             "title: %s Models" % title,
